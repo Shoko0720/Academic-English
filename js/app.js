@@ -52,13 +52,13 @@
     const d = (window.WORD_DETAILS || {})[word.id];
     const enc = encodeURIComponent(word.en);
     const httpsUrl = `https://ejje.weblio.jp/content/${enc}`;
-    // On Android, open the URL in the standalone Chrome app (escapes the PWA
-    // and avoids Chrome Custom Tabs overlay). browser_fallback_url ensures
-    // graceful degradation when Chrome isn't installed.
+    // On Android, target=_blank from a PWA gets intercepted by Chrome Custom
+    // Tabs (in-PWA overlay). Use the Web Share API instead: the system share
+    // sheet lets the user explicitly pick the Chrome app (or any browser),
+    // which then launches in standalone mode rather than as an in-PWA tab.
     const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
-    const weblioUrl = isAndroid
-      ? `intent://ejje.weblio.jp/content/${enc}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(httpsUrl)};end`
-      : httpsUrl;
+    const hasShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+    const useShare = isAndroid && hasShare;
     let parts = [];
     if (d) {
       if (d.pos) parts.push(`<div class="word-details__pos">${escapeHtml(d.pos)}</div>`);
@@ -81,12 +81,29 @@
     } else {
       parts.push('<p class="word-details__empty">この単語の詳細はまだ収録されていません。Weblioで調べてください。</p>');
     }
-    parts.push(
-      `<div class="word-details__actions">` +
-      `<a class="btn btn--small btn--ghost word-details__weblio" href="${weblioUrl}" target="_blank" rel="noopener noreferrer">Weblioで開く</a>` +
-      `</div>`
-    );
+    const weblioBtn = useShare
+      ? `<button class="btn btn--small btn--ghost word-details__weblio" data-action="share-weblio" data-url="${escapeHtml(httpsUrl)}" data-word-en="${escapeHtml(word.en)}">Weblioで開く（共有）</button>`
+      : `<a class="btn btn--small btn--ghost word-details__weblio" href="${httpsUrl}" target="_blank" rel="noopener noreferrer">Weblioで開く</a>`;
+    parts.push(`<div class="word-details__actions">${weblioBtn}</div>`);
     return parts.join('');
+  }
+
+  async function shareWeblio(url, en) {
+    if (!url) return;
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: en ? `${en} - Weblio` : 'Weblio英和辞典',
+          text: en ? `Weblioで「${en}」を調べる` : undefined,
+          url,
+        });
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return; // user cancelled the share sheet
+        console.warn('Share API failed; falling back to window.open:', e);
+      }
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   function toggleDetails(panelEl, word) {
@@ -641,6 +658,10 @@
         const li = target.closest('.word-row');
         const panel = li ? li.querySelector('.word-row__details') : null;
         if (word && panel) toggleDetails(panel, word);
+        break;
+      }
+      case 'share-weblio': {
+        shareWeblio(target.dataset.url, target.dataset.wordEn);
         break;
       }
       case 'abort-quiz':
