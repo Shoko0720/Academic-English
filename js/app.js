@@ -50,7 +50,15 @@
 
   function renderWordDetails(word) {
     const d = (window.WORD_DETAILS || {})[word.id];
-    const weblioUrl = `https://ejje.weblio.jp/content/${encodeURIComponent(word.en)}`;
+    const enc = encodeURIComponent(word.en);
+    const httpsUrl = `https://ejje.weblio.jp/content/${enc}`;
+    // On Android, open the URL in the standalone Chrome app (escapes the PWA
+    // and avoids Chrome Custom Tabs overlay). browser_fallback_url ensures
+    // graceful degradation when Chrome isn't installed.
+    const isAndroid = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent || '');
+    const weblioUrl = isAndroid
+      ? `intent://ejje.weblio.jp/content/${enc}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(httpsUrl)};end`
+      : httpsUrl;
     let parts = [];
     if (d) {
       if (d.pos) parts.push(`<div class="word-details__pos">${escapeHtml(d.pos)}</div>`);
