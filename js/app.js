@@ -43,6 +43,54 @@
       .replace(/'/g, '&#39;');
   }
 
+  // Escape HTML, then promote **bold** to <strong> (used in note fields).
+  function escapeWithBold(s) {
+    return escapeHtml(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  }
+
+  function renderWordDetails(word) {
+    const d = (window.WORD_DETAILS || {})[word.id];
+    const weblioUrl = `https://ejje.weblio.jp/content/${encodeURIComponent(word.en)}`;
+    let parts = [];
+    if (d) {
+      if (d.pos) parts.push(`<div class="word-details__pos">${escapeHtml(d.pos)}</div>`);
+      if (d.note) parts.push(`<div class="word-details__note">${escapeWithBold(d.note)}</div>`);
+      if (d.examples && d.examples.length) {
+        const items = d.examples.map((ex) =>
+          `<li><div class="ex-en">${escapeHtml(ex.en)}</div><div class="ex-ja">${escapeHtml(ex.ja)}</div></li>`
+        ).join('');
+        parts.push(`<div class="word-details__section"><h5>例文</h5><ul class="ex-list">${items}</ul></div>`);
+      }
+      if (d.related && d.related.length) {
+        const items = d.related.map((r) =>
+          `<li><strong>${escapeHtml(r.word)}</strong> <em class="rel-pos">${escapeHtml(r.pos || '')}</em> <span class="rel-note">${escapeHtml(r.note || '')}</span></li>`
+        ).join('');
+        parts.push(`<div class="word-details__section"><h5>関連語</h5><ul class="rel-list">${items}</ul></div>`);
+      }
+      if (d.etymology) {
+        parts.push(`<div class="word-details__section"><h5>語源</h5><p class="etym">${escapeHtml(d.etymology)}</p></div>`);
+      }
+    } else {
+      parts.push('<p class="word-details__empty">この単語の詳細はまだ収録されていません。Weblioで調べてください。</p>');
+    }
+    parts.push(
+      `<div class="word-details__actions">` +
+      `<a class="btn btn--small btn--ghost word-details__weblio" href="${weblioUrl}" target="_blank" rel="noopener noreferrer">Weblioで開く</a>` +
+      `</div>`
+    );
+    return parts.join('');
+  }
+
+  function toggleDetails(panelEl, word) {
+    if (!panelEl || !word) return;
+    if (panelEl.classList.contains('hidden') || panelEl.innerHTML.trim() === '') {
+      panelEl.innerHTML = renderWordDetails(word);
+      panelEl.classList.remove('hidden');
+    } else {
+      panelEl.classList.add('hidden');
+    }
+  }
+
   // ---------------- Home ----------------
 
   function renderHome() {
@@ -199,7 +247,18 @@
           const stat = s
             ? `<span class="word-stat">正${s.correctCount}/誤${s.incorrectCount}</span>`
             : '';
-          return `<li>${badge}<span class="word-en">${escapeHtml(w.en)}</span><span class="word-ja">${escapeHtml(w.ja)}</span>${stat}</li>`;
+          const hasDetail = !!(window.WORD_DETAILS && window.WORD_DETAILS[w.id]);
+          const detailMark = hasDetail ? '📖' : '＋';
+          return `<li class="word-row">
+            <button class="word-row__head" data-action="toggle-row-details" data-word-id="${w.id}">
+              ${badge}
+              <span class="word-en">${escapeHtml(w.en)}</span>
+              <span class="word-ja">${escapeHtml(w.ja)}</span>
+              ${stat}
+              <span class="word-row__chev">${detailMark}</span>
+            </button>
+            <div class="word-details word-row__details hidden"></div>
+          </li>`;
         })
         .join('');
       container.innerHTML = `<ul>${rows}</ul>`;
@@ -300,13 +359,17 @@
         ? `<button class="btn btn--ghost btn--lowconf" data-action="mark-low-confidence" title="自信なし。次回も早めに出題">自信なし</button>`
         : '';
       fb.innerHTML = `
-        <div class="quiz-feedback__icon">${isCorrect ? '◯' : '×'}</div>
-        <div class="quiz-feedback__detail">
-          <div><strong>${escapeHtml(q.word.en)}</strong> — ${escapeHtml(q.word.ja)}</div>
-          ${isCorrect ? '' : `<div class="quiz-feedback__correct">正解: ${escapeHtml(q.correctAnswer)}</div>`}
+        <div class="quiz-feedback__row">
+          <div class="quiz-feedback__icon">${isCorrect ? '◯' : '×'}</div>
+          <div class="quiz-feedback__detail">
+            <div><strong>${escapeHtml(q.word.en)}</strong> — ${escapeHtml(q.word.ja)}</div>
+            ${isCorrect ? '' : `<div class="quiz-feedback__correct">正解: ${escapeHtml(q.correctAnswer)}</div>`}
+          </div>
+          <button class="btn btn--ghost btn--small" data-action="toggle-quiz-details">📖 詳細</button>
+          ${lowConfBtn}
+          <button class="btn btn--primary" data-action="next-question">次へ</button>
         </div>
-        ${lowConfBtn}
-        <button class="btn btn--primary" data-action="next-question">次へ</button>
+        <div class="word-details hidden" id="quiz-word-details"></div>
       `;
     }
 
@@ -489,6 +552,17 @@
 
   // ---------------- Event delegation ----------------
 
+  function findWordById(wordId) {
+    for (const sheet of window.VOCAB_DATA.sheets) {
+      for (const cat of sheet.categories) {
+        for (const w of cat.words) {
+          if (w.id === wordId) return w;
+        }
+      }
+    }
+    return null;
+  }
+
   function onClick(e) {
     const target = e.target.closest('[data-action], [data-sheet], [data-choice], [data-nav], [data-opt-dir], [data-opt-count], [data-cat]');
     if (!target) return;
@@ -547,6 +621,20 @@
       case 'mark-low-confidence':
         markLowConfidence();
         break;
+      case 'toggle-quiz-details': {
+        const q = state.session[state.sessionIndex];
+        const panel = document.getElementById('quiz-word-details');
+        if (q && panel) toggleDetails(panel, q.word);
+        break;
+      }
+      case 'toggle-row-details': {
+        const wordId = target.dataset.wordId;
+        const word = findWordById(wordId);
+        const li = target.closest('.word-row');
+        const panel = li ? li.querySelector('.word-row__details') : null;
+        if (word && panel) toggleDetails(panel, word);
+        break;
+      }
       case 'abort-quiz':
         if (confirm('クイズを中断してホームに戻りますか？回答済みの記録は保存されます。')) {
           finishQuiz();

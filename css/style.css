@@ -254,17 +254,28 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .cat-card__meta { color: #6b7280; font-size: 0.8em; margin: 0.2em 0 0.6em; }
 .cat-card__actions { display: flex; gap: 0.4em; flex-wrap: wrap; }
 
-.word-list { margin-top: 0.6em; max-height: 320px; overflow-y: auto; }
+.word-list { margin-top: 0.6em; max-height: 420px; overflow-y: auto; }
 .word-list ul { list-style: none; padding: 0; margin: 0; }
-.word-list li {
+.word-row { border-bottom: 1px solid #f3f4f6; }
+.word-row__head {
   display: grid;
-  grid-template-columns: auto 1fr 1fr auto;
+  grid-template-columns: auto 1fr 1fr auto auto;
   gap: 0.5em;
   align-items: center;
-  padding: 0.3em 0;
-  border-bottom: 1px solid #f3f4f6;
+  width: 100%;
+  padding: 0.4em 0.3em;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
   font-size: 0.88em;
+  font-family: inherit;
+  color: inherit;
+  transition: background 0.1s;
 }
+.word-row__head:hover { background: #f9fafb; }
+.word-row__chev { font-size: 0.9em; color: #9ca3af; padding: 0 0.3em; }
+.word-row__details { padding: 0.5em 0.6em 0.9em; background: #f9fafb; }
 .word-en { font-weight: 500; }
 .word-ja { color: #4b5563; }
 .word-stat { color: #9ca3af; font-size: 0.85em; }
@@ -280,6 +291,56 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .word-badge--new { background: #f3f4f6; color: #6b7280; }
 .word-badge--learning { background: #dbeafe; color: #1e40af; }
 .word-badge--mastered { background: #d1fae5; color: #065f46; }
+
+/* ============ Word details panel ============ */
+.word-details {
+  margin-top: 0.7em;
+  padding: 0.8em 1em;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.9em;
+  color: #1f2937;
+}
+.quiz-feedback .word-details { background: rgba(255,255,255,0.85); }
+.word-details__pos {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 0.1em 0.6em;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 600;
+  margin-bottom: 0.5em;
+}
+.word-details__note {
+  background: #fef3c7;
+  color: #78350f;
+  padding: 0.4em 0.7em;
+  border-radius: 6px;
+  margin-bottom: 0.7em;
+  font-size: 0.88em;
+}
+.word-details__section { margin: 0.7em 0; }
+.word-details__section h5 {
+  margin: 0 0 0.3em;
+  color: #4b5563;
+  font-size: 0.85em;
+  border-left: 3px solid #2563eb;
+  padding-left: 0.5em;
+}
+.word-details ul.ex-list,
+.word-details ul.rel-list { list-style: none; padding: 0; margin: 0; }
+.word-details ul.ex-list li { margin-bottom: 0.5em; }
+.word-details ul.rel-list li { margin-bottom: 0.3em; padding-left: 0.5em; border-left: 2px solid #e5e7eb; }
+.ex-en { color: #1f2937; }
+.ex-ja { color: #6b7280; font-size: 0.92em; }
+.rel-pos { color: #9ca3af; font-size: 0.85em; font-style: italic; margin: 0 0.3em; }
+.rel-note { color: #4b5563; }
+.etym { margin: 0; color: #4b5563; line-height: 1.6; }
+.word-details__empty { color: #6b7280; font-style: italic; margin: 0 0 0.5em; }
+.word-details__actions { margin-top: 0.7em; }
+.word-details__weblio { font-size: 0.85em; }
 
 /* ============ Quiz ============ */
 .quiz-head {
@@ -363,9 +424,11 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   margin-top: 1.2em;
   padding: 1em 1.2em;
   border-radius: 10px;
+}
+.quiz-feedback__row {
   display: flex;
   align-items: center;
-  gap: 1em;
+  gap: 0.6em;
   flex-wrap: wrap;
 }
 .quiz-feedback--correct { background: #d1fae5; }

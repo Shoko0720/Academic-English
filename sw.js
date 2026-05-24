@@ -1,7 +1,7 @@
 // Service Worker for Academic English Vocabulary PWA
 // Bump CACHE_VERSION whenever you change the data or any cached asset
 // so old caches are evicted on next visit.
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = 'vocab-app-' + CACHE_VERSION;
 
 const ASSETS = [
@@ -10,6 +10,7 @@ const ASSETS = [
   './manifest.json',
   './css/style.css',
   './data/vocabulary.js',
+  './data/word-details.js',
   './js/storage.js',
   './js/srs.js',
   './js/quiz.js',
