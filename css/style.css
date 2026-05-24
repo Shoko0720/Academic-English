@@ -376,6 +376,24 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 .quiz-feedback__detail { flex: 1; min-width: 200px; }
 .quiz-feedback__correct { color: #991b1b; font-size: 0.9em; margin-top: 0.3em; }
 .quiz-feedback .btn { margin-left: auto; }
+.quiz-feedback .btn--lowconf {
+  margin-left: 0;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+.quiz-feedback .btn--lowconf:hover:not(:disabled) { background: #fde68a; }
+.quiz-feedback .btn--lowconf:disabled { background: #f3f4f6; color: #6b7280; border-color: transparent; opacity: 1; }
+
+.weak__lowconf {
+  display: inline-block;
+  margin-left: 0.4em;
+  padding: 0.05em 0.4em;
+  background: #fef3c7;
+  color: #92400e;
+  border-radius: 3px;
+  font-size: 0.78em;
+}
 
 /* ============ Result ============ */
 .result {

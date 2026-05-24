@@ -19,6 +19,7 @@
     return {
       correctCount: 0,
       incorrectCount: 0,
+      lowConfidenceCount: 0,
       ease: 2.5,
       interval: 0,
       repetitions: 0,
@@ -28,12 +29,21 @@
   }
 
   // Simplified SM-2.
-  // Correct  -> interval grows (1, 3, prev*ease), ease += 0.1 (cap 3.0)
-  // Wrong    -> repetitions reset, interval=1, ease -= 0.2 (floor 1.3)
-  function updateOnAnswer(stats, isCorrect) {
+  // Correct + confident -> interval grows (1, 3, prev*ease), ease += 0.1 (cap 3.0)
+  // Correct + low confidence -> interval clamped to [1, 2], repetitions/ease unchanged
+  // Wrong -> repetitions reset, interval=1, ease -= 0.2 (floor 1.3)
+  function updateOnAnswer(stats, isCorrect, lowConfidence) {
     const s = Object.assign({}, stats || defaultStats());
     s.lastReviewed = todayStr();
-    if (isCorrect) {
+    if (isCorrect && lowConfidence) {
+      s.correctCount = (s.correctCount || 0) + 1;
+      s.lowConfidenceCount = (s.lowConfidenceCount || 0) + 1;
+      // Hold the interval back so the word comes around again soon.
+      const prevInterval = s.interval || 1;
+      s.interval = Math.max(1, Math.min(2, prevInterval));
+      // repetitions and ease intentionally unchanged: not a real progression
+      s.nextReview = daysFromToday(s.interval);
+    } else if (isCorrect) {
       s.correctCount = (s.correctCount || 0) + 1;
       s.repetitions = (s.repetitions || 0) + 1;
       if (s.repetitions === 1) {

@@ -93,24 +93,27 @@
       for (const cat of sheet.categories) {
         for (const w of cat.words) {
           const s = progress.wordStats[w.id];
-          if (s && (s.incorrectCount || 0) > 0) {
-            const total = (s.correctCount || 0) + (s.incorrectCount || 0);
-            const errorRate = total ? (s.incorrectCount || 0) / total : 0;
-            const net = (s.incorrectCount || 0) - (s.correctCount || 0);
-            arr.push({
-              word: w,
-              sheetId: sheet.id,
-              categoryName: cat.name,
-              stats: s,
-              net,
-              errorRate,
-            });
-          }
+          if (!s) continue;
+          const incorrect = s.incorrectCount || 0;
+          const lowConf = s.lowConfidenceCount || 0;
+          if (incorrect === 0 && lowConf === 0) continue;
+          const total = (s.correctCount || 0) + incorrect;
+          const errorRate = total ? incorrect / total : 0;
+          // Weakness score: each incorrect = 1.0, each lowConf = 0.5, each confident correct = -0.5
+          const weakness = incorrect + 0.5 * lowConf - 0.5 * (s.correctCount || 0);
+          arr.push({
+            word: w,
+            sheetId: sheet.id,
+            categoryName: cat.name,
+            stats: s,
+            weakness,
+            errorRate,
+          });
         }
       }
     }
     arr.sort((a, b) => {
-      if (b.net !== a.net) return b.net - a.net;
+      if (b.weakness !== a.weakness) return b.weakness - a.weakness;
       return b.errorRate - a.errorRate;
     });
     return arr.slice(0, topN);

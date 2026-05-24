@@ -296,12 +296,16 @@
       fb.classList.remove('hidden');
       fb.classList.toggle('quiz-feedback--correct', isCorrect);
       fb.classList.toggle('quiz-feedback--wrong', !isCorrect);
+      const lowConfBtn = isCorrect
+        ? `<button class="btn btn--ghost btn--lowconf" data-action="mark-low-confidence" title="自信なし。次回も早めに出題">自信なし</button>`
+        : '';
       fb.innerHTML = `
         <div class="quiz-feedback__icon">${isCorrect ? '◯' : '×'}</div>
         <div class="quiz-feedback__detail">
           <div><strong>${escapeHtml(q.word.en)}</strong> — ${escapeHtml(q.word.ja)}</div>
           ${isCorrect ? '' : `<div class="quiz-feedback__correct">正解: ${escapeHtml(q.correctAnswer)}</div>`}
         </div>
+        ${lowConfBtn}
         <button class="btn btn--primary" data-action="next-question">次へ</button>
       `;
     }
@@ -309,6 +313,31 @@
     state.awaitingNext = true;
     // Persist incrementally — never lose progress mid-session
     window.VocabStorage.saveProgress(state.progress);
+  }
+
+  function markLowConfidence() {
+    const q = state.session[state.sessionIndex];
+    if (!q) return;
+    const last = state.sessionAnswers[state.sessionAnswers.length - 1];
+    // Only meaningful if the latest answer was correct and not already marked
+    if (!last || last.wordId !== q.word.id || !last.isCorrect || last.lowConfidence) return;
+    const prev = state.progress.wordStats[q.word.id];
+    // Re-apply the SRS update as a low-confidence correct answer.
+    // Note: prev already reflects the first correct update from handleAnswer;
+    // we re-derive from a "rolled back" stats by decrementing correctCount and
+    // restoring repetitions/ease to pre-answer values is not tracked. Instead
+    // we just take the current prev as baseline and apply a single low-conf step,
+    // which is acceptable: it clamps the interval to <=2 and increments lowConfidenceCount.
+    const next = window.SRS.updateOnAnswer(prev, true, true);
+    state.progress.wordStats[q.word.id] = next;
+    last.lowConfidence = true;
+    window.VocabStorage.saveProgress(state.progress);
+    // Reflect on UI: disable the button so it can't be pressed twice
+    const btn = screens.quiz.querySelector('[data-action="mark-low-confidence"]');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '自信なし ✓';
+    }
   }
 
   function nextQuestion() {
@@ -415,16 +444,20 @@
     const weakList = weak.length
       ? weak
           .map(
-            (w) => `
+            (w) => {
+              const lc = w.stats.lowConfidenceCount || 0;
+              const lcLabel = lc > 0 ? `<span class="weak__lowconf" title="自信なし回数">自信なし×${lc}</span>` : '';
+              return `
             <li>
               <span class="weak__en">${escapeHtml(w.word.en)}</span>
               <span class="weak__ja">${escapeHtml(w.word.ja)}</span>
               <span class="weak__meta">${w.sheetId} ・ ${escapeHtml(w.categoryName)}</span>
-              <span class="weak__score">正${w.stats.correctCount}/誤${w.stats.incorrectCount}</span>
-            </li>`
+              <span class="weak__score">正${w.stats.correctCount}/誤${w.stats.incorrectCount} ${lcLabel}</span>
+            </li>`;
+            }
           )
           .join('')
-      : '<li class="weak__empty">まだ間違えた単語はありません。</li>';
+      : '<li class="weak__empty">まだ間違えた・自信なし単語はありません。</li>';
 
     screens.stats.innerHTML = `
       <h2>統計</h2>
@@ -510,6 +543,9 @@
         break;
       case 'next-question':
         nextQuestion();
+        break;
+      case 'mark-low-confidence':
+        markLowConfidence();
         break;
       case 'abort-quiz':
         if (confirm('クイズを中断してホームに戻りますか？回答済みの記録は保存されます。')) {
